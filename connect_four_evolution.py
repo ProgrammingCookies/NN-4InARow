@@ -6,6 +6,16 @@ import random
 import copy
 from collections import deque
 
+# Check for CUDA availability
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {DEVICE}")
+
+if DEVICE.type == 'cuda':
+    device_name = torch.cuda.get_device_name(DEVICE.index)
+    print(f"GPU Device: {device_name}")
+else:
+    print("Running on CPU")
+
 class ConnectFour:
     def __init__(self):
         self.rows = 6
@@ -96,7 +106,7 @@ class Evolution:
         return child
     
     def crossover(self, model1, model2):
-        child = ConnectFourNN()
+        child = ConnectFourNN().to(DEVICE)
         for param_name, param in child.named_parameters():
             if random.random() < 0.5:
                 param.data.copy_(dict(model1.named_parameters())[param_name].data)
@@ -133,7 +143,7 @@ def play_game_between_models(model1, model2, env):
     while not done:
         current_model = model1 if env.current_player == 1 else model2
         state_tensor = torch.FloatTensor(state).unsqueeze(0).unsqueeze(0)
-        
+        state_tensor = state_tensor.to(current_model.parameters().__next__().device)  # Match model's device
         with torch.no_grad():
             q_values = current_model(state_tensor)
             valid_moves = env.get_valid_moves()
@@ -207,6 +217,7 @@ def play_against_evolved_model(model, human_player=1):
                     print("Please enter a number between 0 and 6")
         else:
             state_tensor = torch.FloatTensor(state).unsqueeze(0).unsqueeze(0)
+            state_tensor = state_tensor.to(model.parameters().__next__().device)  # Match model's device
             with torch.no_grad():
                 q_values = model(state_tensor)
                 valid_moves = env.get_valid_moves()
